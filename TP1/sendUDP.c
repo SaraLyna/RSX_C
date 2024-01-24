@@ -42,15 +42,15 @@ struct SendUDP {
 
 
 void sendUDP(struct SendUDP *sUDP) {
-  int socket ;
+  int socket1 ;
   struct sockaddr_in server;
   socklen_t addr_len = sizeof(server);
 
-  socket = socket(AF_INET, SOCK_DGRAM, 0);
+  socket1 = socket(AF_INET, SOCK_DGRAM, 0);
 
 
 
-  if (socket < 0) {
+  if (socket1 < 0) {
     perror("socket incorrect");
     exit(EXIT_FAILURE);
   }
@@ -63,13 +63,13 @@ void sendUDP(struct SendUDP *sUDP) {
 
 
 
-  if (sendto(socket, sUDP->msg, strlen(sUDP->msg), 0, (struct sockaddr *)&server, addr_len) < 0) {
+  if (sendto(socket1, sUDP->msg, strlen(sUDP->msg), 0, (struct sockaddr *)&server, addr_len) < 0) {
       perror("Error");
-      close(socket);
+      close(socket1);
       exit(EXIT_FAILURE);
   }
 
-  close(socket);
+  close(socket1);
 }
 
 

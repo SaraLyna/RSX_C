@@ -41,8 +41,10 @@ struct ReceiveUDP {
     char buffer[512];
 };
 
- void receiveUDP(struct ReceiveUDP *UDP) {
+ void receiveUDP(struct ReceiveUDP *rUDP) {
   int socket;
+  int len;
+  char buffer[512];
   struct sockaddr_in addrRemoteFromRecv;
   socklen_t addrRemoteFromRecvlen = sizeof(struct sockaddr_in);
 
@@ -52,7 +54,7 @@ struct ReceiveUDP {
     exit(EXIT_FAILURE);
   }
 
-  if((int len = recvfrom(socket, answer, NS_ANSWER_MAXLEN, 0, (struct sockaddr *) &addrRemoteFromRecv, &addrRemoteFromRecvlen)) < 0) {
+  if((len = recvfrom(socket, buffer, 512, 0, (struct sockaddr *) &addrRemoteFromRecv, &addrRemoteFromRecvlen)) < 0) {
     perror("[erreur] - recvfrom ");
     exit(EXIT_FAILURE);
   }

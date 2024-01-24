@@ -13,6 +13,7 @@ Dépôt pour la soumission des travaux pratiques du cours RSX2.
 
 #### TP1
 Commencé le mercredi 24 janvier 2024
+première question finie
 
 
 #### TP2
