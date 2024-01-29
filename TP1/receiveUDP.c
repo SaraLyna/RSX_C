@@ -42,37 +42,47 @@ struct ReceiveUDP {
 };
 
  void receiveUDP(struct ReceiveUDP *rUDP) {
-  int socket;
-  int len;
-  char buffer[512];
-  struct sockaddr_in addrRemoteFromRecv;
-  socklen_t addrRemoteFromRecvlen = sizeof(struct sockaddr_in);
+  rUDP->socket = socket(AF_INET, SOCK_DGRAM, 0);
+
+  if (rUDP->socket < 0) {
+        perror("Erreur lors de la création de la socket");
+        exit(EXIT_FAILURE);
+  }
+  
+  memset(&rUDP->server_addr, 0, sizeof(rUDP->server_addr));
+  rUDP->server_addr.sin_family = AF_INET;
+  rUDP->server_addr.sin_addr.s_addr = INADDR_ANY;
+  rUDP->server_addr.sin_port = htons(rUDP->port);
 
 
-  if (socket < 0) {
-    perror("socket incorrect");
-    exit(EXIT_FAILURE);
+  if (bind(rUDP->socket, (struct sockaddr *)&(rUDP->server_addr), sizeof(rUDP->server_addr)) < 0) {
+        perror("Erreur lors de la liaison de la socket");
+        exit(EXIT_FAILURE);
+  }
+  
+  rUDP->addr_len = sizeof(struct sockaddr_in);
+  int len = recvfrom(rUDP->socket, rUDP->buffer, sizeof(rUDP->buffer), 0, (struct sockaddr *)&(rUDP->server_addr), &(rUDP->addr_len));
+
+  if (len < 0) {
+        perror("Erreur lors de la réception des données");
+        exit(EXIT_FAILURE);
   }
 
-  if((len = recvfrom(socket, buffer, 512, 0, (struct sockaddr *) &addrRemoteFromRecv, &addrRemoteFromRecvlen)) < 0) {
-    perror("[erreur] - recvfrom ");
-    exit(EXIT_FAILURE);
-  }
 
 
 
-
-  close(socket);
+  close(rUDP->socket);
 }
 
 
 
 int main(int argc, char *argv[]){
-  if(argc != 4 ){
+  if(argc != 2 ){
     exit(EXIT_FAILURE);
   }
 
   struct ReceiveUDP r;
+  r.port = atoi(argv[1]);
   receiveUDP(&r);
 
 
