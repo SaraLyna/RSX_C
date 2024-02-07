@@ -9,39 +9,39 @@
 #define DNS_SERVER "194.254.129.102" 
 
 struct DNS_Query {
-    unsigned short id;
-    unsigned short flags;
-    unsigned short questions;
-    unsigned short answers;
-    unsigned short authority;
-    unsigned short additional;
+    int id;
+    int flags;
+    int questions;
+    int answers;
+    int authorities;
+    int additional;
     char *qname;
-    unsigned short qtype;
-    unsigned short qclass;
+    int qtype;
+    int qclass;
 };
 
 
 
-unsigned char* createDNSQuery(struct DNS_Query *query) {
-    unsigned char *dns_query;
-    int dns_query_size = 12 + strlen(query->qname) + 5; // Taille totale de la requête DNS
-
-    dns_query = (unsigned char*)malloc(dns_query_size);
+int* createDNSQuery(struct DNS_Query *query,int *dns_query_size) {
+    char *dns_query;
+    *dns_query_size = 12 + strlen(query->qname) + 5; 
+    
+    dns_query = (char*)malloc(*dns_query_size);
     if (dns_query == NULL) {
         perror("Erreur lors de l'allocation de mémoire");
         exit(EXIT_FAILURE);
     }
 
-    // Initialisation de la requête DNS
-    memset(dns_query, 0, dns_query_size);
+    
+    memset(dns_query, 0, *dns_query_size);
 
-    // Remplissage des champs de l'en-tête DNS
-    *(unsigned short *)(dns_query) = htons(query->identifier);
-    *(unsigned short *)(dns_query + 2) = htons(query->flags);
-    *(unsigned short *)(dns_query + 4) = htons(query->questions);
-    *(unsigned short *)(dns_query + 6) = htons(query->answers);
-    *(unsigned short *)(dns_query + 8) = htons(query->authority);
-    *(unsigned short *)(dns_query + 10) = htons(query->additional);
+    
+    *(int*)(dns_query) = htons(query->id);
+    *(int*)(dns_query + 2) = htons(query->flags);
+    *(int*)(dns_query + 4) = htons(query->questions);
+    *(int*)(dns_query + 6) = htons(query->answers);
+    *(int*)(dns_query + 8) = htons(query->authorities);
+    *(int*)(dns_query + 10) = htons(query->additional);
 
     // Conversion du nom de domaine en format DNS (Q-Name)
     char *token = strtok(query->qname, ".");
@@ -77,7 +77,9 @@ int main() {
     query.qclass = 0x0001; // Classe de requête (IN for Internet)
 
     
-    unsigned char *dns_query = createDNSQuery(&query);
+    int dns_query_size;
+    unsigned char *dns_query = createDNSQuery(&query, &dns_query_size);
+
 
   
     int sockfd;
@@ -94,10 +96,12 @@ int main() {
     dest_addr.sin_port = htons(53); // Port DNS
     dest_addr.sin_addr.s_addr = inet_addr(DNS_SERVER);
 
-    if (sendto(sockfd, dns_query, strlen(dns_query), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) == -1) {
-        perror("Erreur lors de l'envoi de la requête DNS");
-        exit(EXIT_FAILURE);
-    }
+   
+    if (sendto(sockfd, dns_query, dns_query_size, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) == -1) {
+    perror("Erreur lors de l'envoi de la requête DNS");
+    exit(EXIT_FAILURE);
+}
+
 
     printf("Requête DNS envoyée.\n");
 

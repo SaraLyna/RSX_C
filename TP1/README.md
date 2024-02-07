@@ -7,3 +7,13 @@ Mercredi 24 Janvier :
 - dépot de la version en Java du premier semestre également pour faire la comparaison
 - netcat -u : client
 - netcat -l: server
+
+## Semaine 2 :
+Mercredi 7 Février :
+- Réception du message sur le port 4200 :
+./receiveUDP 4200
+Message reçu :hello
+- Envoi du message :
+./sendUDP 127.1.1.3 4200 "hello"
+- Makefile
+
