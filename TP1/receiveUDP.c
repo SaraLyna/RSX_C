@@ -39,6 +39,7 @@ struct ReceiveUDP {
     struct sockaddr_in server_addr;
     socklen_t addr_len;
     char buffer[512];
+    char msg[1024];
 };
 
  void receiveUDP(struct ReceiveUDP *rUDP) {
@@ -63,14 +64,17 @@ struct ReceiveUDP {
   rUDP->addr_len = sizeof(struct sockaddr_in);
   int len = recvfrom(rUDP->socket, rUDP->buffer, sizeof(rUDP->buffer), 0, (struct sockaddr *)&(rUDP->server_addr), &(rUDP->addr_len));
 
+
   if (len < 0) {
         perror("Erreur lors de la réception des données");
         exit(EXIT_FAILURE);
   }
-
-
-
-
+  
+  
+  strncpy(rUDP->msg,rUDP->buffer,len);
+  
+  printf("Message reçu :%s \n",rUDP->msg);
+  
   close(rUDP->socket);
 }
 
