@@ -16,4 +16,16 @@ Message reçu :hello
 - Envoi du message :
 ./sendUDP 127.1.1.3 4200 "hello"
 - Makefile
+- make all : tout compiler
+- make run : tout exécuter
+- modification du code de requeteDNS.c
+- création des fichiers recupDatagram.c et analyseDNS.c pour le prochain tp
+
+
+## Semaine 3 :
+Mercredi 14 Février :
+-
+-
+-
+-
 

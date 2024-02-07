@@ -1,5 +1,5 @@
 CC = gcc
-all : DNSsimple sendUDP receiveUDP 
+all : DNSsimple sendUDP receiveUDP  requeteDNS recupDatagram analyseDNS
 
 DNSsimple : DNSsimple.c
 	$(CC) $? -o $@
@@ -10,6 +10,15 @@ receiveUDP : receiveUDP.c
 sendUDP : sendUDP.c
 	$(CC) $? -o $@
 	
-run: DNSsimple sendUDP receiveUDP
-	./DNSsimple & ./sendUDP & ./receiveUDP
+requeteDNS : requeteDNS.c
+	$(CC) $? -o $@
+	
+recupDatagram : recupDatagram.c
+	$(CC) $? -o $@
+	
+analyseDNS : analyseDNS.c
+	$(CC) $? -o $@
+	
+run: DNSsimple sendUDP receiveUDP requeteDNS recupDatagram analyseDNS
+	./DNSsimple & ./sendUDP & ./receiveUDP & ./requeteDNS & ./recupDatagram & ./analyseDNS
 	

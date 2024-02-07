@@ -6,8 +6,9 @@
 #include <arpa/inet.h>
 
 
-#define DNS_SERVER "194.254.129.102" 
+#define DNS_SERVER "194.254.129.102" //exemple d'adresse donnée
 
+//structure qui définit les différents champs d'une requete DNS
 struct DNS_Query {
     int id;
     int flags;
@@ -21,12 +22,14 @@ struct DNS_Query {
 };
 
 
-
+//fonction qui crée une requete DNS sous forme d'un tableau d'octets
 int* createDNSQuery(struct DNS_Query *query,int *dns_query_size) {
-    char *dns_query;
+    int *dns_query;
     *dns_query_size = 12 + strlen(query->qname) + 5; 
     
-    dns_query = (char*)malloc(*dns_query_size);
+    dns_query = (int*)malloc(*dns_query_size);
+    
+    //cas de base, erreur allocation mémoire
     if (dns_query == NULL) {
         perror("Erreur lors de l'allocation de mémoire");
         exit(EXIT_FAILURE);
@@ -43,6 +46,7 @@ int* createDNSQuery(struct DNS_Query *query,int *dns_query_size) {
     *(int*)(dns_query + 8) = htons(query->authorities);
     *(int*)(dns_query + 10) = htons(query->additional);
 
+
     // Conversion du nom de domaine en format DNS (Q-Name)
     char *token = strtok(query->qname, ".");
     int index = 12;
@@ -52,12 +56,13 @@ int* createDNSQuery(struct DNS_Query *query,int *dns_query_size) {
         index += strlen(token);
         token = strtok(NULL, ".");
     }
-    dns_query[index++] = 0; // Octet de fin de nom de domaine
+    dns_query[index++] = 0; 
+    
 
     // Remplissage des champs Q-Type et Q-Class
-    *(unsigned short *)(dns_query + index) = htons(query->qtype);
+    *(int*)(dns_query + index) = htons(query->qtype);
     index += 2;
-    *(unsigned short *)(dns_query + index) = htons(query->qclass);
+    *(int*)(dns_query + index) = htons(query->qclass);
 
     return dns_query;
 }
@@ -66,19 +71,20 @@ int* createDNSQuery(struct DNS_Query *query,int *dns_query_size) {
 
 int main() {
     struct DNS_Query query;
-    query.id = 0x08bb; // Identifiant
-    query.flags = 0x0100; // Paramètres
-    query.questions = 0x0001; // Nombre de questions
-    query.answers = 0x0000; // Nombre de réponses
-    query.authority = 0x0000; // Nombre d'autorités
-    query.additional = 0x0000; // Nombre d'informations additionnelles
-    query.qname = "www.lifl.fr"; // Nom de domaine
-    query.qtype = 0x0001; // Type de requête (A record)
-    query.qclass = 0x0001; // Classe de requête (IN for Internet)
+    //exemple d'une structure de requete DNS : donnée
+    query.id = 0x08bb; 
+    query.flags = 0x0100; 
+    query.questions = 0x0001; 
+    query.answers = 0x0000; 
+    query.authorities = 0x0000; 
+    query.additional = 0x0000; 
+    query.qname = "www.lifl.fr"; 
+    query.qtype = 0x0001; 
+    query.qclass = 0x0001; 
 
     
     int dns_query_size;
-    unsigned char *dns_query = createDNSQuery(&query, &dns_query_size);
+    int *dns_query = createDNSQuery(&query, &dns_query_size);
 
 
   
@@ -93,19 +99,19 @@ int main() {
 
     memset(&dest_addr, 0, sizeof(dest_addr));
     dest_addr.sin_family = AF_INET;
-    dest_addr.sin_port = htons(53); // Port DNS
+    dest_addr.sin_port = htons(53); 
     dest_addr.sin_addr.s_addr = inet_addr(DNS_SERVER);
 
    
     if (sendto(sockfd, dns_query, dns_query_size, 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) == -1) {
-    perror("Erreur lors de l'envoi de la requête DNS");
-    exit(EXIT_FAILURE);
-}
+	    perror("Erreur lors de l'envoi de la requête DNS");
+	    exit(EXIT_FAILURE);
+     }
 
 
     printf("Requête DNS envoyée.\n");
 
-    free(dns_query);
+    free(dns_query); //free mémoire
     close(sockfd);
 
     return 0;
