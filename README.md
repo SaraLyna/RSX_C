@@ -4,7 +4,7 @@ Dépôt pour la soumission des travaux pratiques du cours RSX2.
 
 
 ### Binôme
-1. OUYAHIA Sara Lyna
+- OUYAHIA Sara Lyna
 
 
 ----
@@ -14,12 +14,12 @@ Dépôt pour la soumission des travaux pratiques du cours RSX2.
 #### TP1
 Commencé le mercredi 24 janvier 2024
 première question finie
+deuxième semaine le mercredi 7 février 
+suite de la première question et codage de requeteDNS.c
+début du codage de recupDatagram.c et analyseDNS.c
 
 
 #### TP2
 
 
-#### TP3
 
-
-#### TP4
