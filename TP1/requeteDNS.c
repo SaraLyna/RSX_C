@@ -11,17 +11,17 @@
 #define MAX_QUERY_SIZE 512
 #define MAX_RESPONSE_SIZE 65536
 
-struct DNS_Query {
-    unsigned short id;
-    unsigned short flags;
-    unsigned short questions;
-    unsigned short answers;
-    unsigned short authorities;
-    unsigned short additional;
-    unsigned char *qname;
-    unsigned short qtype;
-    unsigned short qclass;
-};
+// struct DNS_Query {
+//     unsigned short id;
+//     unsigned short flags;
+//     unsigned short questions;
+//     unsigned short answers;
+//     unsigned short authorities;
+//     unsigned short additional;
+//     unsigned char *qname;
+//     unsigned short qtype;
+//     unsigned short qclass;
+// };
 
 // Fonction pour coder le nom de domaine dans le format DNS
 unsigned char* createDNSQuery(const char *qname, unsigned short qtype, unsigned short qclass, int *dns_query_size) {

@@ -19,17 +19,32 @@
 #define NS_QUERY_LEN  29               /* Longueur de la requête DNS */
 #define NS_ANSWER_MAXLEN 512           /* Longueur maximale de la réponse DNS */
 
-unsigned char query[NS_QUERY_LEN] = {
-    /* En-tête de la requête DNS */
-    0x08,  0xbb,  0x01,  0x00, 0x00,  0x01,  0x00,  0x00, 0x00,  0x00,  0x00,  0x00,
-    /* Question (QNAME, QTYPE, QCLASS) */
-    0x03,  0x77,  0x77,  0x77, 0x04,  0x6c,  0x69,  0x66, 0x6c,  0x02,  0x66,  0x72,
-    0x00,  0x00,  0x01, 0x00,  0x01
-};
 
-unsigned char answer[NS_ANSWER_MAXLEN];
 
-int main(void) {
+int createDnsQuery(char* domain_name){
+  unsigned char answer[NS_ANSWER_MAXLEN];
+  unsigned char query[NS_QUERY_LEN] = {0x08,  0xbb,  0x01,  0x00,0x00,  0x01,  0x00,  0x00, 0x00,  0x00,  0x00,  0x00};
+  int offset = 12;
+  int count =0;
+  int size = strlen(domain_name);
+  while (size != 0) {
+      if(domain_name[size] == "."){
+        query[offset+size]= count;
+        count = 0;
+      } else{
+        query[offset+size] = domain_name[size];
+        count ++;
+
+      }
+      size = size-1;
+  }
+  offset = offset+ strlen(domain_name);
+  query[offset++] = 0x00;
+  query[offset++] = 0x00;
+  query[offset++] = 0x01;
+  query[offset++] = 0x00;
+  query[offset++] = 0x01;
+
     struct addrinfo af_hints, *af_result = NULL;
     memset(&af_hints, 0, sizeof(struct addrinfo));
     af_hints.ai_family   = AF_INET;    /* Utilisation d'IPv4 */
@@ -52,10 +67,6 @@ int main(void) {
     }
     fprintf(stderr, "[OK]\n");
 
-    // Saisie du nom de domaine spécifique
-    char domain_name[256];
-    printf("Entrez le nom de domaine spécifique : ");
-    scanf("%s", domain_name);
 
     // Vérification de la longueur du nom de domaine spécifique
     if (strlen(domain_name) > 255) {
@@ -112,5 +123,30 @@ int main(void) {
         }
     }
 
+    printf("tableau");
+    for (int i = 0; i < NS_QUERY_LEN; i++) {
+        fprintf(stdout, "%.2X ", answer[i] & 0xff);
+        if (((i + 1) % 16 == 0) || (i + 1 == NS_QUERY_LEN)) {
+            for (int j = i + 1; j < ((i + 16) & ~15); j++) {
+                fprintf(stdout, "   ");
+            }
+            fprintf(stdout, "\t");
+            for (int j = i & ~15; j <= i; j++)
+                fprintf(stdout, "%c", answer[j] > 31 && answer[j] < 128 ? (char) answer[j] : '.');
+            fprintf(stdout, "\n");
+        }
+    }
+
     return EXIT_SUCCESS;
+
+
+
+}
+
+int main(int argc, char** argv) {
+  if (argc != 2) {
+      fprintf(stderr, "Usage: %s <domain_name>\n", argv[0]);
+      exit(EXIT_FAILURE);
+  }
+  return createDnsQuery(argv[0]);
 }
