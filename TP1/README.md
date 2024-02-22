@@ -24,8 +24,11 @@ Message reçu :hello
 
 ## Semaine 3 :
 Mercredi 14 Février :
--
--
--
--
+- Suite de DNSRequete.c 
+- Réorganisation des fichiers.
+
+## Semaine 4 :
+Mercredi 21 Février :
+- Travail sur le code pour recuperer le datagramme envoyé par DNSRequete.c dans le meme fichier.
+- Résolution des bugs.
 

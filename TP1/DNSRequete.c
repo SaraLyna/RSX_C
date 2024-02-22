@@ -6,54 +6,53 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <string.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <assert.h>
 
-#define GETADDRINFO
-
-#define DESTNAME "dns1.univ-lille.fr" /* Serveur DNS à interroger */
 #define DESTPORT "53"                  /* Port du serveur DNS */
-
-#define NS_QUERY_LEN  29               /* Longueur de la requête DNS */
 #define NS_ANSWER_MAXLEN 512           /* Longueur maximale de la réponse DNS */
+#define NS_QUERY_HEADER_LEN 12         /* Longueur de l'entête de la requête DNS */
 
+int createDnsQuery(char* domain_name) {
+    unsigned char answer[NS_ANSWER_MAXLEN];
+    unsigned char query[NS_QUERY_HEADER_LEN + strlen(domain_name) + 2]; // 2 octets supplémentaires pour le TYPE et le CLASS
+    int offset = NS_QUERY_HEADER_LEN;
+    int count = 0;
+    int size = strlen(domain_name);
 
+    // Construction de l'entête de la requête DNS
+    memset(query, 0, NS_QUERY_HEADER_LEN);
+    query[1] = 0x01;  // Type de la requête (standard query)
+    query[5] = 0x01;  // Nombre de questions (1)
 
-int createDnsQuery(char* domain_name){
-  unsigned char answer[NS_ANSWER_MAXLEN];
-  unsigned char query[NS_QUERY_LEN] = {0x08,  0xbb,  0x01,  0x00,0x00,  0x01,  0x00,  0x00, 0x00,  0x00,  0x00,  0x00};
-  int offset = 12;
-  int count =0;
-  int size = strlen(domain_name);
-  while (size != 0) {
-      if(domain_name[size] == "."){
-        query[offset+size]= count;
-        count = 0;
-      } else{
-        query[offset+size] = domain_name[size];
-        count ++;
+    // Construction de la partie QNAME de la requête DNS
+    while (*domain_name) {
+        if (*domain_name == '.') {
+            query[offset - count - 1] = count;
+            count = 0;
+        } else {
+            query[offset++] = *domain_name;
+            count++;
+        }
+        domain_name++;
+    }
+    query[offset - count - 1] = count; // Terminaison de la chaîne
 
-      }
-      size = size-1;
-  }
-  offset = offset+ strlen(domain_name);
-  query[offset++] = 0x00;
-  query[offset++] = 0x00;
-  query[offset++] = 0x01;
-  query[offset++] = 0x00;
-  query[offset++] = 0x01;
+    // Ajout du TYPE (A) et du CLASS (IN) à la requête DNS
+    query[offset++] = 0x00;  // TYPE (high byte)
+    query[offset++] = 0x01;  // TYPE (low byte)
+    query[offset++] = 0x00;  // CLASS (high byte)
+    query[offset++] = 0x01;  // CLASS (low byte)
 
     struct addrinfo af_hints, *af_result = NULL;
     memset(&af_hints, 0, sizeof(struct addrinfo));
-    af_hints.ai_family   = AF_INET;    /* Utilisation d'IPv4 */
-    af_hints.ai_socktype = SOCK_DGRAM; /* Utilisation de datagrammes UDP */
+    af_hints.ai_family = AF_INET;       /* Utilisation d'IPv4 */
+    af_hints.ai_socktype = SOCK_DGRAM;  /* Utilisation de datagrammes UDP */
 
-    fprintf(stderr, "Recherche de l'adresse IPv4 pour le nom \"%s\" ... ", DESTNAME);
-    int err = getaddrinfo(DESTNAME, DESTPORT, &af_hints, &af_result);
+    fprintf(stderr, "Recherche de l'adresse IPv4 pour le nom \"%s\" ... ", domain_name);
+    int err = getaddrinfo(domain_name, DESTPORT, &af_hints, &af_result);
     if (err) {
-        fprintf(stderr,"[Erreur] - getaddinfo(\"%s\") -> \"%s\"\n", DESTNAME, gai_strerror(err));
+        fprintf(stderr, "[Erreur] - getaddrinfo(\"%s\") -> \"%s\"\n", domain_name, gai_strerror(err));
         return EXIT_FAILURE;
     }
     fprintf(stderr, "[OK]\n");
@@ -67,31 +66,13 @@ int createDnsQuery(char* domain_name){
     }
     fprintf(stderr, "[OK]\n");
 
-
-    // Vérification de la longueur du nom de domaine spécifique
-    if (strlen(domain_name) > 255) {
-        fprintf(stderr, "Erreur : Le nom de domaine est trop long.\n");
-        return EXIT_FAILURE;
-    }
-
-    // Copie du nom de domaine spécifique dans la requête DNS
-    int i, j;
-    for (i = 12, j = 0; domain_name[j] != '\0'; ++i, ++j) {
-        query[i] = domain_name[j];
-    }
-    query[i++] = 0x00; // Terminateur de chaîne pour QNAME
-    query[i++] = 0x00; // TYPE (high byte)
-    query[i++] = 0x01; // TYPE (low byte)
-    query[i++] = 0x00; // CLASS (high byte)
-    query[i++] = 0x01; // CLASS (low byte)
-
     fprintf(stderr, "Envoi du message ... ");
     ssize_t len;
-    if ((len = sendto(sock, query, NS_QUERY_LEN, 0, af_result->ai_addr, sizeof(struct sockaddr_in))) < 0) {
+    if ((len = sendto(sock, query, offset, 0, af_result->ai_addr, sizeof(struct sockaddr))) < 0) {
         perror("[Erreur] - sendto ");
         return EXIT_FAILURE;
     }
-    fprintf(stderr, "[OK]\nLongueur du message envoyé : %lu\n", len);
+    fprintf(stderr, "[OK]\nLongueur du message envoyé : %ld\n", len);
 
     struct sockaddr_in addrRemoteFromRecv;
     socklen_t addrRemoteFromRecvlen = sizeof(struct sockaddr_in);
@@ -101,10 +82,10 @@ int createDnsQuery(char* domain_name){
         perror("[Erreur] - recvfrom ");
         return EXIT_FAILURE;
     }
-    fprintf(stderr, "[OK]\nLongueur du message reçu : %lu\n", len);
+    fprintf(stderr, "[OK]\nLongueur du message reçu : %ld\n", len);
 
-    fprintf(stderr,"Port distant : %hu\n", ntohs(addrRemoteFromRecv.sin_port));
-    fprintf(stderr,"Adresse IPv4 distante : %s\n", inet_ntoa(addrRemoteFromRecv.sin_addr));
+    fprintf(stderr, "Port distant : %hu\n", ntohs(addrRemoteFromRecv.sin_port));
+    fprintf(stderr, "Adresse IPv4 distante : %s\n", inet_ntoa(addrRemoteFromRecv.sin_addr));
 
     close(sock);
     freeaddrinfo(af_result);
@@ -123,30 +104,14 @@ int createDnsQuery(char* domain_name){
         }
     }
 
-    printf("tableau");
-    for (int i = 0; i < NS_QUERY_LEN; i++) {
-        fprintf(stdout, "%.2X ", answer[i] & 0xff);
-        if (((i + 1) % 16 == 0) || (i + 1 == NS_QUERY_LEN)) {
-            for (int j = i + 1; j < ((i + 16) & ~15); j++) {
-                fprintf(stdout, "   ");
-            }
-            fprintf(stdout, "\t");
-            for (int j = i & ~15; j <= i; j++)
-                fprintf(stdout, "%c", answer[j] > 31 && answer[j] < 128 ? (char) answer[j] : '.');
-            fprintf(stdout, "\n");
-        }
-    }
-
     return EXIT_SUCCESS;
-
-
-
 }
 
 int main(int argc, char** argv) {
-  if (argc != 2) {
-      fprintf(stderr, "Usage: %s <domain_name>\n", argv[0]);
-      exit(EXIT_FAILURE);
-  }
-  return createDnsQuery(argv[0]);
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <domain_name>\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+    createDnsQuery(argv[1]);
 }
+
