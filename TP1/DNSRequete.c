@@ -6,112 +6,218 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <string.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <assert.h>
 
-#define DESTPORT "53"                  /* Port du serveur DNS */
-#define NS_ANSWER_MAXLEN 512           /* Longueur maximale de la réponse DNS */
-#define NS_QUERY_HEADER_LEN 12         /* Longueur de l'entête de la requête DNS */
 
-int createDnsQuery(char* domain_name) {
-    unsigned char answer[NS_ANSWER_MAXLEN];
-    unsigned char query[NS_QUERY_HEADER_LEN + strlen(domain_name) + 2]; // 2 octets supplémentaires pour le TYPE et le CLASS
-    int offset = NS_QUERY_HEADER_LEN;
+#define GETADDRINFO
+
+#ifdef GETADDRINFO
+
+#define DESTNAME "dns1.univ-lille.fr" /* "ns1.univ-lille.fr" */
+#define DESTPORT "53"
+
+#else
+
+#define DESTIPV4 "10.140.6.45"      /* "194.254.129.102" */
+#define DESTPORT 53
+
+#endif
+
+
+#define NS_ANSWER_MAXLEN 512
+
+
+unsigned char answer[NS_ANSWER_MAXLEN];
+
+int create(char * domaine) {
+
+    int NS_QUERY_LEN= 12 + 4 + strlen(domaine) ;
+
+    unsigned char query[NS_QUERY_LEN];
+    query[0] = 0x08;
+    query[1] = 0xbb;
+    query[2] = 0x01;
+    query[3] = 0x00;
+    query[4] = 0x00;
+    query[5] = 0x01;
+    query[6] = 0x00;
+    query[7] = 0x00;
+    query[8] = 0x00;
+    query[9] = 0x00;
+    query[10] = 0x00;
+    query[11] = 0x00;
+  
+
+    int offset = 12;
     int count = 0;
-    int size = strlen(domain_name);
+    int size = strlen(domaine);
 
-    // Construction de l'entête de la requête DNS
-    memset(query, 0, NS_QUERY_HEADER_LEN);
-    query[1] = 0x01;  // Type de la requête (standard query)
-    query[5] = 0x01;  // Nombre de questions (1)
 
-    // Construction de la partie QNAME de la requête DNS
-    while (*domain_name) {
-        if (*domain_name == '.') {
+    while (*domaine) {
+        if (*domaine == '.') {
             query[offset - count - 1] = count;
             count = 0;
         } else {
-            query[offset++] = *domain_name;
+            query[offset++] = *domaine;
             count++;
         }
-        domain_name++;
+        domaine++;
     }
-    query[offset - count - 1] = count; // Terminaison de la chaîne
+    query[offset] = '\0'; // Terminaison de la chaîne
 
-    // Ajout du TYPE (A) et du CLASS (IN) à la requête DNS
+
     query[offset++] = 0x00;  // TYPE (high byte)
     query[offset++] = 0x01;  // TYPE (low byte)
     query[offset++] = 0x00;  // CLASS (high byte)
     query[offset++] = 0x01;  // CLASS (low byte)
 
+
+
+
+
+
+printf(" -------------------------------- \n") ;
+
+for (int i = 0; i < NS_QUERY_LEN; i++) {
+
+      fprintf(stdout," %.2X", query[i] & 0xff);
+
+      if (((i+1)%16 == 0) || (i+1 == NS_QUERY_LEN)) {
+
+        /* ceci pour afficher les caracteres ascii apres l'hexa */
+        /* >>> */
+        for (int j = i+1 ; j < ((i+16) & ~15); j++) {
+          fprintf(stdout,"   ");
+        }
+        fprintf(stdout,"\t");
+        for (int j = i & ~15; j <= i; j++)
+          fprintf(stdout,"%c",query[j] > 31 && query[j] < 128 ? (char)query[j] : '.');
+        /* <<< */
+        fprintf(stdout,"\n");
+      }
+    }
+
+printf(" -------------------------------- \n") ;
+
+
+#ifdef GETADDRINFO
+
     struct addrinfo af_hints, *af_result = NULL;
     memset(&af_hints, 0, sizeof(struct addrinfo));
-    af_hints.ai_family = AF_INET;       /* Utilisation d'IPv4 */
-    af_hints.ai_socktype = SOCK_DGRAM;  /* Utilisation de datagrammes UDP */
+    af_hints.ai_family   = AF_INET;    /* IPv4 */
+    af_hints.ai_socktype = SOCK_DGRAM; /* UDP */
 
-    fprintf(stderr, "Recherche de l'adresse IPv4 pour le nom \"%s\" ... ", domain_name);
-    int err = getaddrinfo(domain_name, DESTPORT, &af_hints, &af_result);
+    fprintf(stderr, " recherche de l'@IPv4, pour le nom \"%s\" ... ", DESTNAME);
+    int err = getaddrinfo(DESTNAME, DESTPORT, &af_hints, &af_result);
     if (err) {
-        fprintf(stderr, "[Erreur] - getaddrinfo(\"%s\") -> \"%s\"\n", domain_name, gai_strerror(err));
-        return EXIT_FAILURE;
+      fprintf(stderr,"[erreur] - getaddinfo(\"%s\") -> \"%s\"\n", DESTNAME, gai_strerror(err));
+      return EXIT_FAILURE;
     }
-    fprintf(stderr, "[OK]\n");
+    fprintf(stderr, "[ok]\n");
 
     int sock = 0;
-    fprintf(stderr, "Création du socket en mode DGRAM (UDP) ... ");
-    sock = socket(af_result->ai_family, af_result->ai_socktype, af_result->ai_protocol);
+    fprintf(stderr, " creation du socket en mode DGRAM (UDP) ... ");
+    sock = socket(af_result->ai_family /* ou PF_INET */, af_result->ai_socktype /* ou SOCK_DGRAM */, af_result->ai_protocol /* ou 0 */);
     if (sock < 0) {
-        perror("[Erreur] - socket ");
-        return EXIT_FAILURE;
+      perror("[erreur] - socket ");
+      return EXIT_FAILURE;
     }
-    fprintf(stderr, "[OK]\n");
+    fprintf(stderr, "[ok]\n");
 
-    fprintf(stderr, "Envoi du message ... ");
-    ssize_t len;
-    if ((len = sendto(sock, query, offset, 0, af_result->ai_addr, sizeof(struct sockaddr))) < 0) {
-        perror("[Erreur] - sendto ");
-        return EXIT_FAILURE;
+
+#else
+
+    struct sockaddr_in remote_addr;
+    memset(&remote_addr, 0, sizeof(struct sockaddr_in));
+    remote_addr.sin_family      = AF_INET; /* IPv4 */
+    remote_addr.sin_port        = htons(DESTPORT); /* numero de port dest */
+    remote_addr.sin_addr.s_addr = inet_addr(DESTIPV4); /* @IPv4 dest */
+    fprintf(stderr, " conversion de l'@IPv4, pour la chaine \"%s\" ... ", DESTIPV4);
+    if (remote_addr.sin_addr.s_addr == INADDR_NONE) {
+      fprintf(stderr,"[erreur] - inet_addr(\"%s\") -> Mauvais formatage\n", DESTIPV4);
+      return EXIT_FAILURE;
     }
-    fprintf(stderr, "[OK]\nLongueur du message envoyé : %ld\n", len);
+    fprintf(stderr, "[ok]\n");
+
+    int sock = 0;
+    fprintf(stderr, " creation du socket en mode DGRAM (UDP) ... ");
+    sock = socket(PF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+      perror("[erreur] - socket ");
+      return EXIT_FAILURE;
+    }
+    fprintf(stderr, "[ok]\n");
+
+#endif
+
+    fprintf(stderr, " envoi du message ... ");
+    ssize_t len;
+    if ( (len = sendto(sock, query, NS_QUERY_LEN, 0,
+#ifdef GETADDRINFO
+                       af_result->ai_addr
+#else
+                       (struct sockaddr*) &remote_addr
+#endif
+                       , sizeof(struct sockaddr_in))) < 0) {
+      perror("[erreur] - sendto ");
+      return EXIT_FAILURE;
+    }
+    fprintf(stderr, "[ok]\n longueur du message envoye : %lu\n", len);
 
     struct sockaddr_in addrRemoteFromRecv;
     socklen_t addrRemoteFromRecvlen = sizeof(struct sockaddr_in);
 
-    fprintf(stderr, "Réception du message ... ");
-    if ((len = recvfrom(sock, answer, NS_ANSWER_MAXLEN, 0, (struct sockaddr *) &addrRemoteFromRecv, &addrRemoteFromRecvlen)) < 0) {
-        perror("[Erreur] - recvfrom ");
-        return EXIT_FAILURE;
+    fprintf(stderr, " reception du message ... ");
+    if ( (len = recvfrom(sock, answer, NS_ANSWER_MAXLEN, 0, (struct sockaddr *) &addrRemoteFromRecv, &addrRemoteFromRecvlen)) < 0) {
+      perror("[erreur] - recvfrom ");
+      return EXIT_FAILURE;
     }
-    fprintf(stderr, "[OK]\nLongueur du message reçu : %ld\n", len);
-
-    fprintf(stderr, "Port distant : %hu\n", ntohs(addrRemoteFromRecv.sin_port));
-    fprintf(stderr, "Adresse IPv4 distante : %s\n", inet_ntoa(addrRemoteFromRecv.sin_addr));
+    fprintf(stderr, "[ok]\n longueur du message recu : %lu\n", len);
+    fprintf(stderr," - port  distant  : %hu\n", ntohs(addrRemoteFromRecv.sin_port));
+    fprintf(stderr," - @IPv4 distante : %s\n", inet_ntoa(addrRemoteFromRecv.sin_addr));
 
     close(sock);
-    freeaddrinfo(af_result);
 
-    fprintf(stdout, "Réponse DNS :\n");
+#ifdef GETADDRINFO
+    freeaddrinfo(af_result);
+#endif
+
+printf(" -------------------------------- \n") ;
+
     for (int i = 0; i < len; i++) {
-        fprintf(stdout, "%.2X ", answer[i] & 0xff);
-        if (((i + 1) % 16 == 0) || (i + 1 == len)) {
-            for (int j = i + 1; j < ((i + 16) & ~15); j++) {
-                fprintf(stdout, "   ");
-            }
-            fprintf(stdout, "\t");
-            for (int j = i & ~15; j <= i; j++)
-                fprintf(stdout, "%c", answer[j] > 31 && answer[j] < 128 ? (char) answer[j] : '.');
-            fprintf(stdout, "\n");
+
+      fprintf(stdout," %.2X", answer[i] & 0xff);
+
+      if (((i+1)%16 == 0) || (i+1 == len)) {
+
+   
+        for (int j = i+1 ; j < ((i+16) & ~15); j++) {       
+          fprintf(stdout," ");        
         }
+        fprintf(stdout,"\t");
+        
+        for (int j = i & ~15; j <= i; j++)
+          fprintf(stdout,"%c",answer[j] > 31 && answer[j] < 128 ? (char)answer[j] : '.');
+        /* <<< */
+        fprintf(stdout,"\n");
+      }
     }
+printf(" -------------------------------- \n") ;
 
     return EXIT_SUCCESS;
 }
 
-int main(int argc, char** argv) {
+
+
+int main (int argc, char * argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <domain_name>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
-    createDnsQuery(argv[1]);
-}
 
+    create(argv[1] ) ;
+    return 0; 
+}
