@@ -33,8 +33,8 @@
 unsigned char answer[NS_ANSWER_MAXLEN];
 
 int create(char * domaine) {
-
-    int NS_QUERY_LEN= 12 + 4 + strlen(domaine) +1;
+    
+    int NS_QUERY_LEN= 12 + 5 + strlen(domaine)+1;
 
     unsigned char query[NS_QUERY_LEN];
     query[0] = 0x08;
@@ -51,23 +51,22 @@ int create(char * domaine) {
     query[11] = 0x00;
   
 
-    int offset = 12;
+    int offset = 13;
     int count = 0;
-    //int size = strlen(domaine);
-
-
+   
+    
     while (*domaine) {
         if (*domaine == '.') {
             query[offset - count - 1] = count;
             offset++;
-            //count=0;
+            count=0;
         } else {
             query[offset++] = *domaine;
             count++;
         }
         domaine++;
     }
-    query[offset++] = count;
+    query[offset - count - 1] = count; // Stocke la longueur du dernier label  
     query[offset++] = 0x00; // Terminaison de la chaîne
 
 
