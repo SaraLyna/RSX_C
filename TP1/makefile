@@ -1,19 +1,17 @@
 CC = gcc
-all : DNSsimple  requeteDNS recupDatagram analyseDNS
+all : DNSsimple  DNSRequete analyseDNS
 
 DNSsimple : DNSsimple.c
 	$(CC) $? -o $@
 	
 	
-requeteDNS : requeteDNS.c
+requeteDNS : DNSRequete.c
 	$(CC) $? -o $@
 	
-recupDatagram : recupDatagram.c
-	$(CC) $? -o $@
 	
 analyseDNS : analyseDNS.c
 	$(CC) $? -o $@
 	
-run: DNSsimple requeteDNS recupDatagram analyseDNS
-	./DNSsimple  & ./requeteDNS & ./recupDatagram & ./analyseDNS
+run: DNSsimple DNSRequete analyseDNS
+	./DNSsimple  & ./DNSRequete  & ./analyseDNS
 	
