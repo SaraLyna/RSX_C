@@ -5,47 +5,56 @@
 #include <sys/socket.h>
 
 
-int analyze(const unsigned char *reponse, int longueur_reponse) {
-    int dns_header_size = 12; 
-    int dns_answer_offset = dns_header_size; 
+#define NS_ANSWER_MAXLEN 512
+
+
+unsigned char answer[NS_ANSWER_MAXLEN];
+
+
+typedef struct DNS_Answer {
+    char domain_name[256];
+    char ipv4_address[16];
+} DNS_Answer;
+
+
+DNS_Answer analyze(unsigned char *answer, ssize_t len) {
+    DNS_Answer result;
+    memset(&result, 0, sizeof(DNS_Answer));
     
-    // Vérification si la réponse contient des réponses
-    if (longueur_reponse > dns_header_size) {
+    if (len > 12) {
         // Vérification si la réponse est une réponse DNS
-        if ((reponse[2] & 0x80) == 0x80) {
-            // Nombre de réponses dans la section de réponse
-            unsigned short answer_count = ntohs(*(unsigned short*)(reponse + 6));
-            
-            // Parcourir les réponses DNS
-            for (int i = 0; i < answer_count; i++) {
-                // Vérification si la réponse est un enregistrement de type A (IPv4)
-                if (reponse[dns_answer_offset] == 0xC0 && reponse[dns_answer_offset + 1] == 0x0C) {
-                    unsigned short type = ntohs(*(unsigned short*)(reponse + dns_answer_offset + 2));
-                    unsigned short data_length = ntohs(*(unsigned short*)(reponse + dns_answer_offset + 10));
-                    
-                    if (type == 0x0001 && data_length == 4) { // Type A (IPv4) et longueur des données 4 (IPv4)
-                        // Extraction et affichage de l'adresse IPv4
-                        struct in_addr ipv4_addr;
-                        memcpy(&ipv4_addr, reponse + dns_answer_offset + 12, 4);
-                        printf("Adresse IPv4 extraite : %s\n", inet_ntoa(ipv4_addr));
-                    }
-                }
-                
-                // Déplacer l'offset vers la prochaine réponse DNS
-                dns_answer_offset += 12 + ntohs(*(unsigned short*)(reponse + dns_answer_offset + 10));
-            }
+        if ((answer[2] & 0x80) == 0x80) {
+            unsigned char *ipv4_start = answer + len - 4;
+            snprintf(result.ipv4_address, sizeof(result.ipv4_address), "%d.%d.%d.%d", ipv4_start[0], ipv4_start[1], ipv4_start[2], ipv4_start[3]);
         }
     }
-    return 0;
+    return result;
 }
 
+
+void printDNSIPv4(DNS_Answer result) {
+    printf("IPv4 Address: %s\n", result.ipv4_address);
+}
+
+
 int main (int argc, char * argv[]) {
-    if (argc != 3) {
-        fprintf(stderr, "Usage: %s reponse\n", argv[0]);
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <reponse>\n", argv[0]);
         exit(EXIT_FAILURE);
     }
     
-    size_t len;
-    analyze(argv[1], len ) ;
+    ssize_t len = strlen(argv[1]) / 2;
+    if (len > NS_ANSWER_MAXLEN) {
+        fprintf(stderr, "Error: Response length exceeds maximum length\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    for (int i = 0; i < len; i++) {
+        sscanf(argv[1] + i * 2, "%2hhx", &answer[i]);
+    }
+    
+    DNS_Answer result = analyze(answer, len);
+    printDNSIPv4(result);
     return 0; 
 }
+

@@ -31,4 +31,8 @@ Mercredi 14 Février :
 Mercredi 21 Février :
 - Travail sur le code pour recuperer le datagramme envoyé par DNSRequete.c dans le meme fichier.
 - Résolution des bugs.
+-----------------------------------------------------------------------------------------------
+##                                      Analyse manuelle :
+- l'adresse IPv4 isolée est `C1 30 BA 7D`, qui est la représentation hexadécimale de l'adresse IPv4 `193.48.186.125`.
 
+- Pour pouvoir analyser le datagramme DNS de retour, j'exécute le programme analyseDNS en lui donnant comme argument le datagramme de retour sans les espaces.
