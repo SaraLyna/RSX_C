@@ -32,6 +32,154 @@
 
 unsigned char answer[NS_ANSWER_MAXLEN];
 
+void decode_dns_response(uint8_t* dns_response, size_t length) {
+    // En-tête
+    uint16_t id = (dns_response[0] << 8) | dns_response[1];
+    uint16_t flags = (dns_response[2] << 8) | dns_response[3];
+    uint16_t qdcount = (dns_response[4] << 8) | dns_response[5];
+    uint16_t ancount = (dns_response[6] << 8) | dns_response[7];
+    uint16_t nscount = (dns_response[8] << 8) | dns_response[9];
+    uint16_t arcount = (dns_response[10] << 8) | dns_response[11];
+
+    printf("-- Entete --\n");
+    printf("%.2X %.2X : IDENTIFIANT\n", dns_response[0], dns_response[1]);
+    printf("%.2X %.2X : FLAGS\n", dns_response[2], dns_response[3]);
+    printf("%.2X %.2X : QDCOUNT (Nombre de questions)\n", dns_response[4], dns_response[5]);
+    printf("%.2X %.2X : ANCOUNT (Nombre de reponses)\n", dns_response[6], dns_response[7]);
+    printf("%.2X %.2X : NSCOUNT (Nombre d'authorites)\n", dns_response[8], dns_response[9]);
+    printf("%.2X %.2X : ARCOUNT (Nombre d'additionnels)\n", dns_response[10], dns_response[11]);
+
+    size_t offset = 12;
+
+    // Parcourir les questions
+    printf("\n-- Questions --\n");
+    for (int q = 0; q < qdcount; q++) {
+        printf("-- Question %d --\n", q + 1);
+
+        while (dns_response[offset] != 0x00) {
+            printf("%.2X ", dns_response[offset]);
+            offset++;
+        }
+        offset++; // Passer le 0x00
+        printf(": Nom de domaine\n");
+
+        printf("%.2X %.2X : QTYPE\n", dns_response[offset], dns_response[offset + 1]);
+        printf("%.2X %.2X : QCLASS\n", dns_response[offset + 2], dns_response[offset + 3]);
+
+        // Passer à la réponse suivante
+        offset += 4;
+    }
+
+    // Parcourir les réponses
+    printf("\n-- Reponses --\n");
+    for (int i = 0; i < ancount; i++) {
+        printf("-- Reponse %d --\n", i + 1);
+
+        // Compression de nom
+        if ((dns_response[offset] & 0xc0) == 0xc0) {
+            printf("%.2X %.2X : Compression de nom\n", dns_response[offset], dns_response[offset + 1]);
+            offset += 2;
+        } else {
+            while (dns_response[offset] != 0x00) {
+                printf("%.2X ", dns_response[offset]);
+                offset++;
+            }
+            offset++;
+            printf(": Nom de la réponse\n");
+        }
+
+        printf("%.2X %.2X : TYPE\n", dns_response[offset], dns_response[offset + 1]);
+        printf("%.2X %.2X : CLASS\n", dns_response[offset + 2], dns_response[offset + 3]);
+        printf("%.2X %.2X %.2X %.2X : TTL\n", dns_response[offset + 4], dns_response[offset + 5], dns_response[offset + 6], dns_response[offset + 7]);
+        printf("%.2X %.2X : RDLENGTH\n", dns_response[offset + 8], dns_response[offset + 9]);
+
+        uint16_t rdlength = (dns_response[offset + 8] << 8) | dns_response[offset + 9];
+
+        // Type A (IPv4 address)
+        if (dns_response[offset] == 0x00 && dns_response[offset + 1] == 0x01) {
+            printf("%.2X %.2X %.2X %.2X : Adresse IPv4\n", dns_response[offset + 10], dns_response[offset + 11], dns_response[offset + 12], dns_response[offset + 13]);
+            printf("*** REPONSE %d : %.2X %.2X %.2X %.2X EST L’ADRESSE IPv4 ***\n", i + 1, dns_response[offset + 10], dns_response[offset + 11], dns_response[offset + 12], dns_response[offset + 13]);
+        } else {
+            printf(" : Nom canonique\n");
+        }
+
+        offset += rdlength + 10; // Passer à la réponse suivante
+    }
+
+    // Parcourir les autorités
+    printf("\n-- Autorites --\n");
+    for (int j = 0; j < nscount; j++) {
+        printf("-- Autorite %d --\n", j + 1);
+
+        // Compression de nom
+        if ((dns_response[offset] & 0xc0) == 0xc0) {
+            printf("%.2X %.2X : Compression de nom\n", dns_response[offset], dns_response[offset + 1]);
+            offset += 2;
+        } else {
+            while (dns_response[offset] != 0x00) {
+                printf("%.2X ", dns_response[offset]);
+                offset++;
+            }
+            offset++;
+            printf(": Nom de l'autorite\n");
+        }
+
+        printf("%.2X %.2X : TYPE\n", dns_response[offset], dns_response[offset + 1]);
+        printf("%.2X %.2X : CLASS\n", dns_response[offset + 2], dns_response[offset + 3]);
+        printf("%.2X %.2X %.2X %.2X : TTL\n", dns_response[offset + 4], dns_response[offset + 5], dns_response[offset + 6], dns_response[offset + 7]);
+        printf("%.2X %.2X : RDLENGTH\n", dns_response[offset + 8], dns_response[offset + 9]);
+
+        uint16_t rdlength = (dns_response[offset + 8] << 8) | dns_response[offset + 9];
+
+        // Type NS (name server)
+        printf("Nom du serveur : ");
+        for (int k = 0; k < rdlength; k++) {
+            printf("%c", dns_response[offset + 10 + k]);
+        }
+        printf("\n");
+
+        offset += rdlength + 10; // Passer à l'autorité suivante
+    }
+
+    // Parcourir les informations additionnelles
+    printf("\n-- Informations additionnelles --\n");
+    for (int m = 0; m < arcount; m++) {
+        printf("-- Information additionnelle %d --\n", m + 1);
+
+        // Compression de nom
+        if ((dns_response[offset] & 0xc0) == 0xc0) {
+            printf("%.2X %.2X : Compression de nom\n", dns_response[offset], dns_response[offset + 1]);
+            offset += 2;
+        } else {
+            while (dns_response[offset] != 0x00) {
+                printf("%.2X ", dns_response[offset]);
+                offset++;
+            }
+            offset++;
+            printf(": Nom de l'information additionnelle\n");
+        }
+
+        printf("%.2X %.2X : TYPE\n", dns_response[offset], dns_response[offset + 1]);
+        printf("%.2X %.2X : CLASS\n", dns_response[offset + 2], dns_response[offset + 3]);
+        printf("%.2X %.2X %.2X %.2X : TTL\n", dns_response[offset + 4], dns_response[offset + 5], dns_response[offset + 6], dns_response[offset + 7]);
+        printf("%.2X %.2X : RDLENGTH\n", dns_response[offset + 8], dns_response[offset + 9]);
+
+        uint16_t rdlength = (dns_response[offset + 8] << 8) | dns_response[offset + 9];
+
+        // Type A (IPv4 address)
+        if (dns_response[offset] == 0x00 && dns_response[offset + 1] == 0x01) {
+            printf("%.2X %.2X %.2X %.2X : Adresse IPv4\n", dns_response[offset + 10], dns_response[offset + 11], dns_response[offset + 12], dns_response[offset + 13]);
+            printf("*** INFORMATION ADDITIONNELLE %d : %.2X %.2X %.2X %.2X EST L’ADRESSE IPv4 ***\n", m + 1, dns_response[offset + 10], dns_response[offset + 11], dns_response[offset + 12], dns_response[offset + 13]);
+        } else {
+            printf(" : Nom canonique\n");
+        }
+
+        offset += rdlength + 10; // Passer à l'information additionnelle suivante
+    }
+}
+
+
+
 int create(char * domaine) {
     
     int NS_QUERY_LEN= 12 + 5 + strlen(domaine)+1;
@@ -204,6 +352,10 @@ printf(" -------------------------------- \n") ;
         fprintf(stdout,"\n");
       }
     }
+printf(" -------------------------------- \n") ;
+
+    decode_dns_response(answer, len);
+
 printf(" -------------------------------- \n") ;
 
     return EXIT_SUCCESS;
