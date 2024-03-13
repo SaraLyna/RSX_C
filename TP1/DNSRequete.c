@@ -239,6 +239,7 @@ int create(char * domaine) {
     
     int NS_QUERY_LEN= 12 + 5 + strlen(domaine)+1;
 
+    //12 premiers octets du tableau = entete
     unsigned char query[NS_QUERY_LEN];
     query[0] = 0x08;
     query[1] = 0xbb;
@@ -254,11 +255,10 @@ int create(char * domaine) {
     query[11] = 0x00;
   
 
-    int offset = 13;
-    int count = 0;
+    int offset = 12;
    
     
-    while (*domaine) {
+    /*while (*domaine) {
         if (*domaine == '.') {
             query[offset - count - 1] = count;
             offset++;
@@ -269,10 +269,10 @@ int create(char * domaine) {
         }
         domaine++;
     }
-    query[offset - count - 1] = count; // Stocke la longueur du dernier label  
+    query[offset - count - 1] = count; // Stocke la longueur du dernier label 
+     */
     query[offset++] = 0x00; // Terminaison de la chaîne
-
-
+    
     query[offset++] = 0x00;  // TYPE (high byte)
     query[offset++] = 0x01;  // TYPE (low byte)
     query[offset++] = 0x00;  // CLASS (high byte)
