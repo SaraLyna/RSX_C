@@ -32,7 +32,7 @@
 
 unsigned char answer[NS_ANSWER_MAXLEN];
 
-struct DNS {
+struct DNS {//stocke les différents champs de l'entete dns
     unsigned short id;
     unsigned short flags;
     unsigned short qdcount;
@@ -44,6 +44,8 @@ struct DNS {
 void analyze(unsigned char* dns_response, size_t length) {
     struct DNS dns;
     // En-tête
+    //operation bit à bit pour extraire les valeurs sur 16 bits
+    //les differents champs de l'entete sont codés sur 2 octets = 16 bits, donc les deux premeirs bits sont déclaés de 8bits vers la gauche pour leur donner les 8bits de poids fort dans les 16 bits
     dns.id = (dns_response[0] << 8) | dns_response[1];
     dns.flags = (dns_response[2] << 8) | dns_response[3];
     dns.qdcount = (dns_response[4] << 8) | dns_response[5];
@@ -69,20 +71,20 @@ void analyze(unsigned char* dns_response, size_t length) {
     printf("%04X : NSCOUNT (Nombre d'authorités)\n",dns.nscount);
     printf("%04X : ARCOUNT (Nombre d'additionnels)\n",dns.arcount);
 
-    size_t offset = 12; // on met l'offset à al position 12 car c'est la que se termine l'entete
+    size_t offset = 12; // on met l'offset à la position 12 car c'est la que se termine l'entete
 
     // Parcourir les questions
     printf("\n-- Questions --\n");
-    for (int q = 0; q < dns.qdcount; q++) {
-        printf("-- Question %d --\n", q + 1);
+    for (int i = 0; i < dns.qdcount; i++) {//parcourt chaque qst dans la réponse dns
+        printf("-- Question %d --\n", i + 1);//nombre de questions
         
         int name_length = 0;
         int name_offset = offset;
 
         while (dns_response[name_offset] != 0x00) {
             int label_length = dns_response[name_offset];
-            name_offset += label_length + 1;
-            name_length += label_length + 1;
+            name_offset += label_length + 1;//la longueur de chaque label est ajouté à la longueur totale du nom de domaine
+            name_length += label_length + 1;//l'offset est déplacé pour pointer vers le début de la prochaine question
         }
         name_offset++; // Passer le 0x00
         
@@ -97,18 +99,18 @@ void analyze(unsigned char* dns_response, size_t length) {
         
 
 
-        printf("%.2X %.2X : QTYPE\n", dns_response[offset], dns_response[offset + 1]);
+        printf("%.2X %.2X : QTYPE\n", dns_response[offset], dns_response[offset + 1]);//lu a partir de la position actuelle de l'offset , juste apres le nom de domaine
         printf("%.2X %.2X : QCLASS\n", dns_response[offset + 2], dns_response[offset + 3]);
 
         // Passer à la réponse suivante
-        offset += 4;
+        offset += 4;//type 2 octets + class 2 octets
     }
 
     // Parcourir les réponses
     printf("\n-- Reponses --\n");
     for (int i = 0; i < dns.ancount; i++) {
         printf("-- Reponse %d --\n", i + 1);
-
+/**
         // Compression de nom
         if ((dns_response[offset] & 0xc0) == 0xc0) {
             printf("%.2X %.2X :\n", dns_response[offset], dns_response[offset + 1]);
@@ -134,13 +136,13 @@ void analyze(unsigned char* dns_response, size_t length) {
 	    printf("\"\n");
 	    printf(": \"%.*s\"\n", (int)(offset - nameOffset), dns_response + nameOffset);
         }
-
+*/
         printf("%.2X %.2X : TYPE\n", dns_response[offset], dns_response[offset + 1]);
         printf("%.2X %.2X : CLASS\n", dns_response[offset + 2], dns_response[offset + 3]);
         printf("%.2X %.2X %.2X %.2X : TTL\n", dns_response[offset + 4], dns_response[offset + 5], dns_response[offset + 6], dns_response[offset + 7]);
         printf("%.2X %.2X : RDLENGTH\n", dns_response[offset + 8], dns_response[offset + 9]);
 
-
+/**
 	unsigned char rdlength = (dns_response[offset + 8] << 8) | dns_response[offset + 9];
 
         // Type A (IPv4 address)
@@ -155,7 +157,8 @@ void analyze(unsigned char* dns_response, size_t length) {
 
         offset += rdlength + 10; // Passer à la réponse suivante
     }
-
+*/
+/**
     // Parcourir les autorités
     printf("\n-- Autorites --\n");
     for (int j = 0; j < dns.nscount; j++) {
@@ -230,7 +233,9 @@ void analyze(unsigned char* dns_response, size_t length) {
         }
 
         offset += rdlength + 10; // Passer à l'information additionnelle suivante
+        */
     }
+   
 }
 
 
@@ -238,6 +243,8 @@ void analyze(unsigned char* dns_response, size_t length) {
 int create(char * domaine) {
     
     int NS_QUERY_LEN= 12 + 5 + strlen(domaine)+1;
+    //5 est la taille fixe pour les champs Type et class
+    //1 octet supplémentaire pour le 0 terminateur
 
     //12 premiers octets du tableau = entete
     unsigned char query[NS_QUERY_LEN];
@@ -255,22 +262,27 @@ int create(char * domaine) {
     query[11] = 0x00;
   
 
-    int offset = 12;
+    int offset = 13;//on commence à écrire le nom de domaine apres l'en tete dns ce qui est logique, et comme l'entete contient 12 octets, donc ça sera le 13 ieme
+    int count = 0;//compter le nombre de caracteres dans chaque label, exemple : www : 3, fr :2
    
     
-    /*while (*domaine) {
-        if (*domaine == '.') {
-            query[offset - count - 1] = count;
-            offset++;
-            count=0;
-        } else {
-            query[offset++] = *domaine;
-            count++;
+    while (*domaine != '\0') {//tant que le pointeur ne pointe pas vers le caractere de fin de chaine, cette boucle continue a parcourir les caracteres à traiter dans le nom de domaine
+        if (*domaine == '.') {//si le caractere pointé est un point
+            query[offset - count -1] = count;//ça veut dire qu'on a atteint la fin d'un label, count contient le nombre de car dans le label et le stocke à l'offset - count-1 dans query
+            offset++;// se déplace vers la prochaine position dispo dans query
+            count = 0;// reinitialiser le compteur pour compter les prochaines labels
+        } else {//pas un point
+            query[offset++] = *domaine;// le caractere est stocké dans query et il est incrémenté pour se deplacer vers la prochaine position
+            count++;// le compteur est incrémenté car un caractere a été trouvé
         }
-        domaine++;
+        domaine++;//le pointeur est déplacé vers le car suivant du nom de domaine
     }
-    query[offset - count - 1] = count; // Stocke la longueur du dernier label 
-     */
+    
+    //fin du nom de domaine
+    query[offset - count -1] = count; // Stocke la longueur du dernier label 
+    //count contient le nbre de car dans le dernier label du nom de domaine,
+     
+     
     query[offset++] = 0x00; // Terminaison de la chaîne
     
     query[offset++] = 0x00;  // TYPE (high byte)
